@@ -87,14 +87,16 @@ async function SignedIn({ name }: { name: string }) {
                     </li>
                   ) : (
                     org.projects.map((project) => (
-                      <li
-                        key={project.id}
-                        className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2"
-                      >
-                        <span className="font-medium">{project.name}</span>
-                        <span className="text-sm text-slate-500">
-                          {project._count.articles} articles
-                        </span>
+                      <li key={project.id}>
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2 transition hover:bg-slate-100"
+                        >
+                          <span className="font-medium">{project.name}</span>
+                          <span className="text-sm text-slate-500">
+                            {project._count.articles} articles
+                          </span>
+                        </Link>
                       </li>
                     ))
                   )}
