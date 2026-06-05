@@ -9,10 +9,11 @@
 
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { ProjectRole } from "../../../generated/prisma";
 
 /**
  * 1. CONTEXT
@@ -131,3 +132,59 @@ export const protectedProcedure = t.procedure
       },
     });
   });
+
+/**
+ * Project-scoped authorization.
+ *
+ * This is the single server-side gate for everything that lives inside a
+ * project (articles, reviews, imports). Any procedure built from it requires a
+ * `projectId` in its input, verifies the signed-in user has a ProjectMembership
+ * for that project, and (optionally) that their role is permitted. On success it
+ * injects the `membership` and `project` into ctx so handlers never re-query
+ * access. Access is therefore enforced here, not in the UI.
+ */
+const projectProcedureWithRoles = (allowedRoles?: ProjectRole[]) =>
+  protectedProcedure
+    .input(z.object({ projectId: z.string().min(1) }))
+    .use(async ({ ctx, input, next }) => {
+      const membership = await ctx.db.projectMembership.findUnique({
+        where: {
+          userId_projectId: {
+            userId: ctx.session.user.id,
+            projectId: input.projectId,
+          },
+        },
+        include: { project: true },
+      });
+
+      if (!membership) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this project.",
+        });
+      }
+
+      if (allowedRoles && !allowedRoles.includes(membership.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Your role does not permit this action.",
+        });
+      }
+
+      const { project, ...membershipFields } = membership;
+      return next({ ctx: { membership: membershipFields, project } });
+    });
+
+/**
+ * Read access to a project: any member (OWNER, REVIEWER, or VIEWER).
+ */
+export const projectProcedure = projectProcedureWithRoles();
+
+/**
+ * Write access to a project's review workflow: OWNER and REVIEWER only.
+ * VIEWER members are read-only.
+ */
+export const projectWriteProcedure = projectProcedureWithRoles([
+  ProjectRole.OWNER,
+  ProjectRole.REVIEWER,
+]);
