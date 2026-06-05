@@ -1,69 +1,109 @@
 import Link from "next/link";
 
-import { LatestPost } from "~/app/_components/post";
 import { auth } from "~/server/auth";
-import { api, HydrateClient } from "~/trpc/server";
+import { api } from "~/trpc/server";
 
 export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
   const session = await auth();
 
-  if (session?.user) {
-    void api.post.getLatest.prefetch();
-  }
+  return (
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-16">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">
+            EasySLR — Article Review Workspace
+          </h1>
+          <p className="text-slate-600">
+            Import research articles into projects and review them with a
+            table-driven workflow.
+          </p>
+        </header>
+
+        {session?.user ? (
+          <SignedIn name={session.user.name ?? session.user.email ?? "you"} />
+        ) : (
+          <SignedOut />
+        )}
+      </div>
+    </main>
+  );
+}
+
+function SignedOut() {
+  return (
+    <div className="flex flex-col items-start gap-4 rounded-xl border border-slate-200 bg-white p-6">
+      <p className="text-slate-700">You are not signed in.</p>
+      <Link
+        href="/api/auth/signin"
+        className="rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white transition hover:bg-slate-700"
+      >
+        Sign in
+      </Link>
+    </div>
+  );
+}
+
+async function SignedIn({ name }: { name: string }) {
+  const organizations = await api.workspace.myOrganizations();
 
   return (
-    <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-          </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <p className="text-slate-700">
+          Signed in as <span className="font-medium">{name}</span>
+        </p>
+        <Link
+          href="/api/auth/signout"
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+        >
+          Sign out
+        </Link>
+      </div>
 
-            <div className="flex flex-col items-center justify-center gap-4">
-              <p className="text-center text-2xl text-white">
-                {session && <span>Logged in as {session.user?.name}</span>}
-              </p>
-              <Link
-                href={session ? "/api/auth/signout" : "/api/auth/signin"}
-                className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xl font-semibold">Your organizations</h2>
+
+        {organizations.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-slate-500">
+            You don&apos;t belong to any organizations yet.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {organizations.map((org) => (
+              <li
+                key={org.id}
+                className="rounded-xl border border-slate-200 bg-white p-5"
               >
-                {session ? "Sign out" : "Sign in"}
-              </Link>
-            </div>
-          </div>
-
-          {session?.user && <LatestPost />}
-        </div>
-      </main>
-    </HydrateClient>
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-lg font-semibold">{org.name}</h3>
+                  <span className="text-xs uppercase tracking-wide text-slate-400">
+                    {org.memberships[0]?.role ?? "MEMBER"}
+                  </span>
+                </div>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {org.projects.length === 0 ? (
+                    <li className="text-sm text-slate-500">
+                      No projects you can access.
+                    </li>
+                  ) : (
+                    org.projects.map((project) => (
+                      <li
+                        key={project.id}
+                        className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2"
+                      >
+                        <span className="font-medium">{project.name}</span>
+                        <span className="text-sm text-slate-500">
+                          {project._count.articles} articles
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
