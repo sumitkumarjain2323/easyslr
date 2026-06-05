@@ -1,5 +1,6 @@
 import { articleRouter } from "~/server/api/routers/article";
 import { projectRouter } from "~/server/api/routers/project";
+import { reviewRouter } from "~/server/api/routers/review";
 import { workspaceRouter } from "~/server/api/routers/workspace";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
@@ -12,6 +13,7 @@ export const appRouter = createTRPCRouter({
   workspace: workspaceRouter,
   project: projectRouter,
   article: articleRouter,
+  review: reviewRouter,
 });
 
 // export type definition of API
