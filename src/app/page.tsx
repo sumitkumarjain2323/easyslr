@@ -34,7 +34,7 @@ function SignedOut() {
     <div className="flex flex-col items-start gap-4 rounded-xl border border-slate-200 bg-white p-6">
       <p className="text-slate-700">You are not signed in.</p>
       <Link
-        href="/api/auth/signin"
+        href="/signin"
         className="rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white transition hover:bg-slate-700"
       >
         Sign in

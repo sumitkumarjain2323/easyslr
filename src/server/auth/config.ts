@@ -62,6 +62,12 @@ export const authConfig = {
       },
     }),
   ],
+  // Route all sign-in / auth-error UI to our custom page instead of the
+  // built-in Auth.js pages, so error handling + toasts are consistent.
+  pages: {
+    signIn: "/signin",
+    error: "/signin",
+  },
   // Adapter is kept for User/Account storage and future OAuth providers; the
   // Credentials provider itself relies on the JWT strategy below.
   adapter: PrismaAdapter(db),

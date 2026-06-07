@@ -14,7 +14,7 @@ export default async function ProjectPage({
   const { projectId } = await params;
 
   const session = await auth();
-  if (!session?.user) redirect("/api/auth/signin");
+  if (!session?.user) redirect("/signin");
 
   let project: Awaited<ReturnType<typeof api.project.byId>>;
   try {
