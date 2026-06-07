@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 
@@ -75,6 +76,7 @@ export function ArticlesTable({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const utils = api.useUtils();
   const stats = api.article.stats.useQuery({ projectId });
@@ -122,6 +124,27 @@ export function ArticlesTable({
     setSelected(allSelected ? new Set() : new Set(articles.map((a) => a.id)));
   }
 
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const { csv, count, projectName } =
+        await utils.article.exportCsv.fetch({ projectId });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const safeName = projectName.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      a.href = url;
+      a.download = `${safeName}-articles.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${count} article${count === 1 ? "" : "s"} to CSV.`);
+    } catch {
+      toast.error("Couldn't export the CSV. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section className="flex flex-col gap-4">
       <ProgressBar stats={stats.data} />
@@ -149,6 +172,13 @@ export function ArticlesTable({
             </button>
           ))}
         </div>
+        <button
+          onClick={exportCsv}
+          disabled={exporting || articles.length === 0}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+        >
+          {exporting ? "Exporting…" : "Export CSV"}
+        </button>
       </div>
 
       {/* Bulk action bar */}

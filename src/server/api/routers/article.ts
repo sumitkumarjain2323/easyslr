@@ -27,6 +27,20 @@ const listInput = z.object({
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
 
+/**
+ * Render one CSV row, escaping per RFC 4180: wrap in quotes when the value
+ * contains a comma, quote, or newline, and double any embedded quotes.
+ */
+function toCsvLine(values: (string | number | null | undefined)[]): string {
+  return values
+    .map((v) => {
+      if (v === null || v === undefined) return "";
+      const s = String(v);
+      return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    })
+    .join(",");
+}
+
 /** Load existing PMIDs/DOIs in a project for duplicate detection. */
 async function loadExistingIdentifiers(
   db: PrismaClient,
@@ -84,6 +98,55 @@ export const articleRouter = createTRPCRouter({
       orderBy: { [input.sortBy]: input.sortDir },
       include: { review: true },
     });
+  }),
+
+  /**
+   * Export the project's articles (with their review state) as a CSV string.
+   * Access is enforced by projectProcedure; any project member may export.
+   */
+  exportCsv: projectProcedure.query(async ({ ctx }) => {
+    const articles = await ctx.db.article.findMany({
+      where: { projectId: ctx.project.id },
+      orderBy: { createdAt: "desc" },
+      include: { review: true },
+    });
+
+    const headers = [
+      "Title",
+      "First Author",
+      "Authors",
+      "Journal",
+      "Publication Year",
+      "PMID",
+      "DOI",
+      "PMCID",
+      "NIHMS ID",
+      "Citation",
+      "Create Date",
+      "Decision",
+      "Notes",
+      "Tags",
+    ];
+
+    const rows = articles.map((a) => [
+      a.title,
+      a.firstAuthor,
+      a.authors,
+      a.journal,
+      a.publicationYear,
+      a.pmid,
+      a.doi,
+      a.pmcid,
+      a.nihmsId,
+      a.citation,
+      a.createDate,
+      a.review?.decision ?? "UNREVIEWED",
+      a.review?.notes,
+      a.review?.tags?.join("; "),
+    ]);
+
+    const csv = [headers, ...rows].map(toCsvLine).join("\r\n");
+    return { csv, count: articles.length, projectName: ctx.project.name };
   }),
 
   /** Decision counts for the whole project (used for the progress bar). */

@@ -9,7 +9,8 @@ bulk actions.
 > Built for the EasySLR engineering assignment.
 
 - **Repository:** https://github.com/sumitkumarjain2323/easyslr
-- **Deployed URL:** _not deployed_ (see [Deployment](#deployment))
+- **Deployed URL:** https://easyslr.vercel.app (sign in at `/signin`)
+- **Demo credentials:** `demo@easyslr.dev` / `demo1234` (more below)
 
 ---
 
@@ -139,6 +140,8 @@ generic CRUD grid:
 - A **progress bar** showing how much of the project has been triaged.
 - **Filter by decision** (including "Unreviewed") plus full-text search and
   column sorting, so a reviewer can work through the backlog efficiently.
+- **CSV export** of the project's articles with their review state (decision,
+  notes, tags), for handing screening results to downstream tools.
 
 One review per article (the project's current decision) keeps the model simple
 and explainable; multi-reviewer adjudication is listed under
@@ -187,8 +190,27 @@ Focused on behavior that matters (not UI snapshots):
 
 ## Deployment
 
-Not deployed. The app is deploy-ready (standard Next.js + a Postgres connection
-string). If deploying to **AWS (SST preferred)**:
+**Live at https://easyslr.vercel.app** — deployed on **Vercel** (Next.js host)
+with a **Neon** serverless PostgreSQL database. Demo credentials are listed
+above; sign in at `/signin`.
+
+How the deployment is handled:
+
+- **Secrets** — `DATABASE_URL` and `AUTH_SECRET` are set as Vercel environment
+  variables (Production + Preview), never committed (`.env` is gitignored; only
+  `.env.example` ships).
+- **Migrations** — `prisma migrate deploy` is run against the Neon database
+  (with the direct, non-pooled connection); the app runtime uses Neon's
+  **pooled** connection string, which serverless functions require.
+- **Failure modes** — the import flow fails safe (validate-then-write, per-row
+  error reporting, idempotent re-runs); the UI surfaces auth/query failures via
+  toasts and explicit loading/empty/error states. Neon's free tier scales to
+  zero, so the first request after idle wakes the DB (a brief one-time delay).
+- **Logs** — Vercel function logs + Neon dashboard.
+- **Cost** — effectively $0: Vercel Hobby + Neon free tier.
+
+Vercel was chosen over AWS for the fastest zero-config path for this Next.js
+stack within the timebox. **If deploying to AWS (SST preferred)** instead:
 
 - **Secrets** — `DATABASE_URL` and `AUTH_SECRET` via SST Secrets / SSM
   Parameter Store, never committed (`.env` is gitignored; only `.env.example`
@@ -240,6 +262,9 @@ authorization layer, the import pipeline, the table UI, and the tests.
 - Verified the authorization model by signing in as different seeded users and
   confirming an outsider gets 403 / 404 on another org's project and articles.
 - Ran `npm test`, `npm run typecheck`, and `npm run build` to green.
+- Verified the live deployment end-to-end: sign-in against the production Neon
+  database succeeds (session cookie issued) and wrong credentials surface the
+  error toast.
 
 **One example where I corrected AI output:** the production `next build`
 initially failed with a Windows `EPERM` error. The first attempted fix
@@ -255,10 +280,9 @@ OAuth.)
 
 - Pagination / virtualized table for very large projects.
 - Multi-reviewer screening with conflict resolution and an audit trail.
-- CSV export of reviewed articles.
 - Saved filters / table views.
 - Project & organization management UI (currently created via seed/API).
-- Optimistic UI updates for decisions, and per-row inline error toasts.
+- Optimistic UI updates for decisions.
 - AWS (SST) deployment with the secrets/migrations setup described above.
 
 ---
